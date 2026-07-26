@@ -45,12 +45,14 @@ class Individual_Grid(object):
         # Default fitness function: Just some arbitrary combination of a few criteria.  Is it good?  Who knows?
         # STUDENT Modify this, and possibly add more metrics.  You can replace this with whatever code you like.
         coefficients = dict(
-            meaningfulJumpVariance=0.5,
-            negativeSpace=0.6,
+            meaningfulJumpVariance=1.0,
+            decorationPercentage=0.8,
+            negativeSpace=0.4,
             pathPercentage=0.5,
-            emptyPercentage=0.6,
-            linearity=-0.5,
-            solvability=2.0
+            emptyPercentage=-0.6,
+            linearity=-1.0,
+            solvability=8.0,
+            jumps=0.5
         )
         self._fitness = sum(map(lambda m: coefficients[m] * measurements[m],
                                 coefficients))
@@ -72,7 +74,16 @@ class Individual_Grid(object):
         right = width - 1
         for y in range(height):
             for x in range(left, right):
-                pass
+                if random.random() < 0.05:
+                    tile = random.choices(
+                        options,
+                        weights=[55, 15, 5, 2, 7, 7, 0, 0, 4],
+                        k=1
+                    )[0]
+                    if y == 15:
+                        genome[y][x] = random.choice(["X", "X", "X", "-"])
+                    else:
+                        genome[y][x] = tile
         return genome
 
     # Create zero or more children from self and other
@@ -82,13 +93,20 @@ class Individual_Grid(object):
         # do crossover with other
         left = 1
         right = width - 1
+        cut1 = random.randint(left, right - 1)
+        cut2 = random.randint(left, right - 1)
+        if cut1 > cut2:
+            temp = cut1
+            cut1 = cut2
+            cut2 = temp
         for y in range(height):
             for x in range(left, right):
                 # STUDENT Which one should you take?  Self, or other?  Why?
                 # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
-                pass
+                if x >= cut1 and x <= cut2:
+                    new_genome[y][x] = other.genome[y][x]
         # do mutation; note we're returning a one-element tuple here
-        return (Individual_Grid(new_genome),)
+        return (Individual_Grid(self.mutate(new_genome)),)
 
     # Turn the genome into a level string (easy for this genome)
     def to_level(self):
@@ -112,12 +130,32 @@ class Individual_Grid(object):
     def random_individual(cls):
         # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
         # STUDENT also consider weighting the different tile types so it's not uniformly random
-        g = [random.choices(options, k=width) for row in range(height)]
+        g = [["-" for col in range(width)] for row in range(height)]
         g[15][:] = ["X"] * width
+        for i in range(random.randint(20, 50)):
+            x = random.randint(1, width - 2)
+            y = random.randint(8, 13)
+            g[y][x] = random.choice(["X", "B", "?", "o", "M"])
+        for i in range(random.randint(5, 15)):
+            x = random.randint(1, width - 2)
+            g[14][x] = "E"
+        for i in range(random.randint(2, 8)):
+            x = random.randint(2, width - 3)
+            h = random.randint(2, 4)
+            g[15 - h][x] = "T"
+            for y in range(15 - h + 1, 16):
+                g[y][x] = "|"
+        for i in range(random.randint(1, 5)):
+            x = random.randint(5, width - 10)
+            w = random.randint(1, 3)
+            for xx in range(x, x + w):
+                g[15][xx] = "-"
         g[14][0] = "m"
         g[7][-1] = "v"
-        g[8:14][-1] = ["f"] * 6
-        g[14:16][-1] = ["X", "X"]
+        for col in range(8, 14):
+            g[col][-1] = "f"
+        for col in range(14, 16):
+            g[col][-1] = "X"
         return cls(g)
 
 
