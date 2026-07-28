@@ -103,7 +103,7 @@ In a short DE run, the best fitness increased from 15.84 at generation 1 to 21.0
 
 ## Favorite Level
 
-My selected level is `levels/favorite_DE.txt`. It is solvable according to the provided pathfinding metric and contains 11 meaningful jumps. It has gaps, pipes, platforms, stairs, rewards, and enemies without relying on only one feature type.
+Jenny: My selected level is `levels/favorite_DE.txt`. It is solvable according to the provided pathfinding metric and contains 11 meaningful jumps. It has gaps, pipes, platforms, stairs, rewards, and enemies without relying on only one feature type.
 
 I selected it because it combines several recognizable Mario features while preserving a path to the goal. It was found at generation 5. The level was inspected as text and measured with the provided metrics, but it was not manually played in Unity during this test run.
 
