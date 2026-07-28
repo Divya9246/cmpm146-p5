@@ -383,8 +383,8 @@ class Individual_DE(object):
         g = [random_design_element() for _i in range(elt_count)]
         return Individual_DE(g)
 
-
-Individual = Individual_DE
+Individual = Individual_Grid # temporarily changing it
+# Individual = Individual_DE
 
 
 def generate_successors(population):
@@ -414,6 +414,7 @@ def generate_successors(population):
 def ga():
     # STUDENT Feel free to play with this parameter
     pop_limit = 480
+    # pop_limit = 24 # temporarily changing it
     # Code to parallelize some computations
     batches = os.cpu_count()
     if pop_limit % batches != 0:
@@ -423,12 +424,12 @@ def ga():
         init_time = time.time()
         # STUDENT (Optional) change population initialization
         population = [Individual.random_individual() if random.random() < 0.9
-                      else Individual.empty_individual()
-                      for _g in range(pop_limit)]
+                    else Individual.empty_individual()
+                    for _g in range(pop_limit)]
         # But leave this line alone; we have to reassign to population because we get a new population that has more cached stuff in it.
         population = pool.map(Individual.calculate_fitness,
-                              population,
-                              batch_size)
+                            population,
+                            batch_size)
         init_done = time.time()
         print("Created and calculated initial population statistics in:", init_done - init_time, "seconds")
         generation = 0
@@ -460,8 +461,8 @@ def ga():
                 print("Generated successors in:", gendone - gentime, "seconds")
                 # Calculate fitness in batches in parallel
                 next_population = pool.map(Individual.calculate_fitness,
-                                           next_population,
-                                           batch_size)
+                                        next_population,
+                                        batch_size)
                 popdone = time.time()
                 print("Calculated fitnesses in:", popdone - gendone, "seconds")
                 population = next_population
