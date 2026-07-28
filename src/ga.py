@@ -175,6 +175,20 @@ def clip(lo, val, hi):
         return hi
     return val
 
+
+def random_design_element():
+    return random.choice([
+        (random.randint(1, width - 2), "0_hole", random.randint(1, 8)),
+        (random.randint(1, width - 2), "1_platform", random.randint(1, 8), random.randint(0, height - 1), random.choice(["?", "X", "B"])),
+        (random.randint(1, width - 2), "2_enemy"),
+        (random.randint(1, width - 2), "3_coin", random.randint(0, height - 1)),
+        (random.randint(1, width - 2), "4_block", random.randint(0, height - 1), random.choice([True, False])),
+        (random.randint(1, width - 2), "5_qblock", random.randint(0, height - 1), random.choice([True, False])),
+        (random.randint(1, width - 2), "6_stairs", random.randint(1, height - 4), random.choice([-1, 1])),
+        (random.randint(1, width - 2), "7_pipe", random.randint(2, height - 4))
+    ])
+
+
 # Inspired by https://www.researchgate.net/profile/Philippe_Pasquier/publication/220867545_Towards_a_Generic_Framework_for_Automated_Video_Game_Level_Creation/links/0912f510ac2bed57d1000000.pdf
 
 
@@ -192,24 +206,17 @@ class Individual_DE(object):
     # Calculate and cache fitness
     def calculate_fitness(self):
         measurements = metrics.metrics(self.to_level())
-        # Default fitness function: Just some arbitrary combination of a few criteria.  Is it good?  Who knows?
-        # STUDENT Add more metrics?
-        # STUDENT Improve this with any code you like
-        coefficients = dict(
-            meaningfulJumpVariance=0.5,
-            negativeSpace=0.6,
-            pathPercentage=0.5,
-            emptyPercentage=0.6,
-            linearity=-0.5,
-            solvability=2.0
+        meaningful_jumps = max(0, measurements["meaningfulJumps"])
+        stair_count = sum(de[1] == "6_stairs" for de in self.genome)
+        stair_penalty = 0.5 * max(0, stair_count - 5)
+
+        self._fitness = (
+            10.0 * measurements["solvability"]
+            + meaningful_jumps
+            + 5.0 * measurements["decorationPercentage"]
+            - 0.5 * measurements["linearity"]
+            - stair_penalty
         )
-        penalties = 0
-        # STUDENT For example, too many stairs are unaesthetic.  Let's penalize that
-        if len(list(filter(lambda de: de[1] == "6_stairs", self.genome))) > 5:
-            penalties -= 2
-        # STUDENT If you go for the FI-2POP extra credit, you can put constraint calculation in here too and cache it in a new entry in __slots__.
-        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m],
-                                coefficients)) + penalties
         return self
 
     def fitness(self):
@@ -218,9 +225,16 @@ class Individual_DE(object):
         return self._fitness
 
     def mutate(self, new_genome):
-        # STUDENT How does this work?  Explain it in your writeup.
-        # STUDENT consider putting more constraints on this, to prevent generating weird things
-        if random.random() < 0.1 and len(new_genome) > 0:
+        if random.random() < 0.1:
+            action = random.random()
+            if len(new_genome) == 0 or action < 0.2:
+                heapq.heappush(new_genome, random_design_element())
+                return new_genome
+            if action < 0.4:
+                new_genome.pop(random.randrange(len(new_genome)))
+                heapq.heapify(new_genome)
+                return new_genome
+
             to_change = random.randint(0, len(new_genome) - 1)
             de = new_genome[to_change]
             new_de = de
@@ -292,15 +306,16 @@ class Individual_DE(object):
                     madeof = random.choice(["?", "X", "B"])
                 new_de = (x, de_type, w, y, madeof)
             elif de_type == "2_enemy":
-                pass
-            new_genome.pop(to_change)
-            heapq.heappush(new_genome, new_de)
+                x = offset_by_upto(x, width / 8, min=1, max=width - 2)
+                new_de = (x, de_type)
+            new_genome[to_change] = new_de
+            heapq.heapify(new_genome)
         return new_genome
 
     def generate_children(self, other):
         # STUDENT How does this work?  Explain it in your writeup.
-        pa = random.randint(0, len(self.genome) - 1)
-        pb = random.randint(0, len(other.genome) - 1)
+        pa = random.randint(0, len(self.genome))
+        pb = random.randint(0, len(other.genome))
         a_part = self.genome[:pa] if len(self.genome) > 0 else []
         b_part = other.genome[pb:] if len(other.genome) > 0 else []
         ga = a_part + b_part
@@ -365,26 +380,34 @@ class Individual_DE(object):
     def random_individual(_cls):
         # STUDENT Maybe enhance this
         elt_count = random.randint(8, 128)
-        g = [random.choice([
-            (random.randint(1, width - 2), "0_hole", random.randint(1, 8)),
-            (random.randint(1, width - 2), "1_platform", random.randint(1, 8), random.randint(0, height - 1), random.choice(["?", "X", "B"])),
-            (random.randint(1, width - 2), "2_enemy"),
-            (random.randint(1, width - 2), "3_coin", random.randint(0, height - 1)),
-            (random.randint(1, width - 2), "4_block", random.randint(0, height - 1), random.choice([True, False])),
-            (random.randint(1, width - 2), "5_qblock", random.randint(0, height - 1), random.choice([True, False])),
-            (random.randint(1, width - 2), "6_stairs", random.randint(1, height - 4), random.choice([-1, 1])),
-            (random.randint(1, width - 2), "7_pipe", random.randint(2, height - 4))
-        ]) for i in range(elt_count)]
+        g = [random_design_element() for _i in range(elt_count)]
         return Individual_DE(g)
 
 
-Individual = Individual_Grid
+Individual = Individual_DE
 
 
 def generate_successors(population):
-    results = []
-    # STUDENT Design and implement this
-    # Hint: Call generate_children() on some individuals and fill up results.
+    if len(population) == 0:
+        return []
+
+    population_size = len(population)
+    elite_count = max(1, population_size // 10)
+    results = sorted(population, key=lambda individual: individual.fitness(), reverse=True)[:elite_count]
+    tournament_size = min(3, population_size)
+
+    def tournament_winner():
+        competitors = random.sample(population, tournament_size)
+        return max(competitors, key=lambda individual: individual.fitness())
+
+    while len(results) < population_size:
+        parent_a = tournament_winner()
+        parent_b = tournament_winner()
+        for child in parent_a.generate_children(parent_b):
+            results.append(child)
+            if len(results) == population_size:
+                break
+
     return results
 
 
